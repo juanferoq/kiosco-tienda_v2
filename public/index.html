@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Asistente Virtual · Mi Tienda</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #06060f; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+#kiosco { width: 100%; max-width: 500px; background: #08080f; border-radius: 28px; border: 1.5px solid #1a1a2e; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 0 60px rgba(74,108,247,0.08); }
+#top-bar { background: #0d0d1a; padding: 16px 22px; border-bottom: 0.5px solid #1a1a2e; display: flex; align-items: center; gap: 12px; }
+#store-logo { font-size: 13px; font-weight: 600; color: #9090b0; letter-spacing: 0.12em; text-transform: uppercase; }
+#clock { font-size: 12px; color: #44445a; margin-left: auto; }
+#online-dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; margin-left: 8px; animation: pulse-dot 2s infinite; }
+@keyframes pulse-dot { 0%,100%{opacity:1;} 50%{opacity:0.5;} }
+
+/* Pantalla de inicio */
+#start-screen { position: absolute; inset: 0; background: #08080f; border-radius: 28px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; z-index: 100; }
+#start-screen.hidden { display: none; }
+#start-avatar-preview { width: 140px; height: 140px; border-radius: 50%; overflow: hidden; border: 2px solid #2a2a4a; background: #13132a; }
+#start-avatar-preview video { width: 100%; height: 100%; object-fit: cover; }
+#start-title { font-size: 18px; font-weight: 500; color: #c8c8e8; text-align: center; }
+#start-sub { font-size: 13px; color: #6666aa; text-align: center; }
+#start-btn { padding: 14px 36px; border-radius: 25px; border: none; background: #4a6cf7; color: white; font-size: 15px; font-weight: 500; cursor: pointer; font-family: inherit; transition: opacity 0.15s; }
+#start-btn:hover { opacity: 0.88; }
+
+#avatar-section { background: #0d0d1a; padding: 20px 0 16px; display: flex; flex-direction: column; align-items: center; gap: 14px; border-bottom: 0.5px solid #1a1a2e; }
+#avatar-container { width: 220px; height: 220px; border-radius: 50%; overflow: hidden; border: 2px solid #2a2a4a; background: #13132a; position: relative; display: flex; align-items: center; justify-content: center; }
+#avatar-video { width: 100%; height: 100%; object-fit: cover; display: none; }
+#avatar-canvas { border-radius: 50%; display: block; }
+#loading-overlay { display: none; position: absolute; inset: 0; background: rgba(8,8,15,0.8); border-radius: 50%; align-items: center; justify-content: center; z-index: 10; flex-direction: column; gap: 8px; }
+#loading-overlay.show { display: flex; }
+#loading-spinner { width: 32px; height: 32px; border: 2px solid #2a2a4a; border-top-color: #4a6cf7; border-radius: 50%; animation: spin 0.8s linear infinite; }
+#loading-msg { font-size: 11px; color: #6666aa; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+#avatar-status { display: flex; align-items: center; gap: 10px; }
+#wave-mini { display: flex; align-items: center; gap: 3px; height: 18px; }
+.wmbar { width: 3px; border-radius: 2px; background: #4a6cf7; height: 4px; }
+.wmbar.idle { animation: wmid 2s infinite ease-in-out; }
+.wmbar:nth-child(2).idle{animation-delay:.2s;}.wmbar:nth-child(3).idle{animation-delay:.4s;}.wmbar:nth-child(4).idle{animation-delay:.6s;}.wmbar:nth-child(5).idle{animation-delay:.8s;}
+@keyframes wmid{0%,100%{height:3px;}50%{height:9px;}}
+.wmbar.speaking { animation: wmspk .4s infinite ease-in-out; }
+.wmbar:nth-child(2).speaking{animation-delay:.08s;}.wmbar:nth-child(3).speaking{animation-delay:.16s;}.wmbar:nth-child(4).speaking{animation-delay:.24s;}.wmbar:nth-child(5).speaking{animation-delay:.32s;}
+@keyframes wmspk{0%,100%{height:3px;}50%{height:16px;}}
+.wmbar.listening { animation: wmlsn .3s infinite ease-in-out; background: #f7c355; }
+.wmbar:nth-child(2).listening{animation-delay:.06s;}.wmbar:nth-child(3).listening{animation-delay:.12s;}.wmbar:nth-child(4).listening{animation-delay:.18s;}.wmbar:nth-child(5).listening{animation-delay:.24s;}
+@keyframes wmlsn{0%,100%{height:4px;}50%{height:14px;}}
+#status-label { font-size: 12px; color: #6666aa; }
+
+#chat-area { max-height: 220px; overflow-y: auto; padding: 14px 18px; display: flex; flex-direction: column; gap: 9px; }
+#chat-area::-webkit-scrollbar{width:3px;}
+#chat-area::-webkit-scrollbar-thumb{background:#2a2a4a;border-radius:2px;}
+.kmsg { display: flex; gap: 7px; align-items: flex-end; }
+.kmsg.user { flex-direction: row-reverse; }
+.kbubble { padding: 10px 14px; border-radius: 16px; font-size: 14px; line-height: 1.6; max-width: 80%; white-space: pre-line; }
+.bot .kbubble { background: #13132a; border: .5px solid #2a2a4a; color: #c8c8e8; border-bottom-left-radius: 3px; }
+.user .kbubble { background: #4a6cf7; color: #fff; border-bottom-right-radius: 3px; }
+.kav { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; flex-shrink: 0; }
+.bot .kav { background: #1e1e3a; color: #8888bb; }
+.user .kav { background: #2a3a8a; color: #aabbff; }
+.typing-bub { display:flex;align-items:center;gap:5px;padding:10px 14px;background:#13132a;border:.5px solid #2a2a4a;border-radius:16px;border-bottom-left-radius:3px; }
+.tdot{width:6px;height:6px;border-radius:50%;background:#555570;animation:tblink 1.2s infinite;}
+.tdot:nth-child(2){animation-delay:.2s;}.tdot:nth-child(3){animation-delay:.4s;}
+@keyframes tblink{0%,80%,100%{opacity:.2;}40%{opacity:1;}}
+
+#chips-row { display: flex; flex-wrap: wrap; gap: 7px; padding: 0 16px 12px; }
+.kchip { padding: 8px 14px; border-radius: 20px; border: .5px solid #2a2a4a; font-size: 12px; cursor: pointer; background: #0d0d1a; color: #7777aa; transition: all .15s; user-select: none; }
+.kchip:hover { background: #1e1e3a; color: #c8c8e8; }
+
+#bottom-bar { background: #0d0d1a; border-top: .5px solid #1a1a2e; padding: 14px 18px; display: flex; gap: 10px; align-items: center; }
+#k-input { flex: 1; padding: 12px 16px; border-radius: 25px; border: .5px solid #2a2a4a; background: #13132a; color: #c8c8e8; font-size: 14px; font-family: inherit; outline: none; }
+#k-input::placeholder { color: #44445a; }
+#k-input:focus { border-color: #4a6cf7; }
+#k-mic { width: 46px; height: 46px; border-radius: 50%; border: .5px solid #2a2a4a; background: #13132a; color: #8888bb; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+#k-mic.listening { border-color: #f7c355; background: #1a1a08; color: #f7c355; }
+#k-send { width: 46px; height: 46px; border-radius: 50%; border: none; background: #4a6cf7; color: #fff; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+#k-send:disabled { opacity: .4; cursor: not-allowed; }
+#mic-hint { text-align: center; font-size: 11px; color: #333350; padding: 0 18px 12px; }
+</style>
+</head>
+<body>
+<div id="kiosco" style="position:relative;">
+
+  <!-- Pantalla de inicio — resuelve el AudioContext de Chrome -->
+  <div id="start-screen">
+    <div id="start-avatar-preview">
+      <video id="start-video" autoplay playsinline muted></video>
+    </div>
+    <div id="start-title">Asistente Virtual</div>
+    <div id="start-sub">Mi Tienda · Medellín</div>
+    <button id="start-btn" onclick="startKiosco()">Toca para comenzar</button>
+  </div>
+
+  <div id="top-bar">
+    <div style="width:32px;height:32px;border-radius:8px;background:#1e1e3a;display:flex;align-items:center;justify-content:center;font-size:16px;">🏪</div>
+    <div id="store-logo">Mi Tienda</div>
+    <div id="clock">--:--</div>
+    <div id="online-dot"></div>
+  </div>
+
+  <div id="avatar-section">
+    <div id="avatar-container">
+      <video id="avatar-video" autoplay playsinline muted></video>
+      <canvas id="avatar-canvas" width="220" height="220"></canvas>
+      <div id="loading-overlay">
+        <div id="loading-spinner"></div>
+        <div id="loading-msg">Conectando...</div>
+      </div>
+    </div>
+    <div id="avatar-status">
+      <div id="wave-mini">
+        <div class="wmbar idle"></div><div class="wmbar idle"></div>
+        <div class="wmbar idle"></div><div class="wmbar idle"></div>
+        <div class="wmbar idle"></div>
+      </div>
+      <span id="status-label">Asistente · En línea</span>
+    </div>
+  </div>
+
+  <div id="chat-area">
+    <div class="kmsg bot">
+      <div class="kav">A</div>
+      <div class="kbubble">¡Hola! Bienvenido a Mi Tienda. ¿En qué te puedo ayudar hoy? 👋</div>
+    </div>
+  </div>
+
+  <div id="chips-row">
+    <div class="kchip" onclick="sendChip('¿Qué productos tienen?')">¿Qué tienen?</div>
+    <div class="kchip" onclick="sendChip('¿Cuánto cuesta la chaqueta negra?')">Precio chaqueta</div>
+    <div class="kchip" onclick="sendChip('¿Tienen tallas grandes?')">Tallas grandes</div>
+    <div class="kchip" onclick="sendChip('¿Cuáles son sus horarios?')">Horarios</div>
+    <div class="kchip" onclick="sendChip('¿Cómo puedo pagar?')">Formas de pago</div>
+    <div class="kchip" onclick="sendChip('¿Dónde están ubicados?')">Ubicación</div>
+  </div>
+
+  <div id="bottom-bar">
+    <input id="k-input" type="text" placeholder="Toca aquí y escribe tu pregunta..." onkeydown="if(event.key==='Enter')sendMsg()" />
+    <button id="k-mic" onclick="toggleMic()">🎤</button>
+    <button id="k-send" onclick="sendMsg()">&#10148;</button>
+  </div>
+  <div id="mic-hint">🎤 Presiona el micrófono y habla en español</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/livekit-client@2.5.7/dist/livekit-client.umd.min.js"></script>
+<script>
+const SYSTEM_PROMPT = `Eres el asistente virtual de una tienda de ropa en Medellín, Colombia.
+Responde siempre en español, de forma amable, breve y directa (máximo 2 oraciones).
+PRODUCTOS:
+- Camisa blanca: $89.900 COP | Tallas: S, M, L, XL | Disponible
+- Jean azul clásico: $159.900 COP | Tallas: 28-38 | Disponible
+- Vestido floral: $129.900 COP | Tallas: XS, S, M, L | Últimas unidades
+- Chaqueta negra: $249.900 COP | Tallas: S, M, L | Disponible
+- Tenis deportivos: $189.900 COP | Tallas: 35-44 | Disponible
+- Bolso de cuero: $219.900 COP | Talla única | Pocas unidades
+TIENDA: Lunes-sábado 10am-8pm, domingos 11am-6pm | El Tesoro, Medellín | Efectivo, tarjeta, Nequi, Daviplata`;
+
+let conversationHistory = [];
+let sessionData = null;
+let livekitRoom = null;
+let wsConn = null;
+let canvasFrame = 0;
+let canvasState = 'idle';
+let audioContext = null;
+
+// ── Canvas avatar de respaldo ────────────────────────────────
+const canvas = document.getElementById('avatar-canvas');
+const ctx = canvas.getContext('2d');
+
+function drawFallbackAvatar() {
+  canvasFrame++;
+  ctx.clearRect(0,0,220,220);
+  const fy=Math.sin(canvasFrame*.018)*4;
+  const bp=canvasFrame%200;
+  const blink=bp<7?bp/7:bp<13?1-(bp-7)/6:0;
+  const mOpen=canvasState==='speaking'?Math.max(0,Math.sin(canvasFrame*.2)):0;
+
+  ctx.fillStyle='#1c3a6e';
+  ctx.beginPath();ctx.ellipse(110,215,75,28,0,0,Math.PI*2);ctx.fill();
+  ctx.fillRect(60,188,100,32);
+
+  ctx.fillStyle='#1e2d4a';
+  ctx.beginPath();ctx.moveTo(38,108+fy);ctx.bezierCurveTo(18,145+fy,22,188+fy,35,215);ctx.bezierCurveTo(24,178+fy,30,148+fy,42,115+fy);ctx.fill();
+  ctx.beginPath();ctx.moveTo(182,108+fy);ctx.bezierCurveTo(202,145+fy,198,188+fy,185,215);ctx.bezierCurveTo(196,178+fy,190,148+fy,178,115+fy);ctx.fill();
+
+  const fg=ctx.createRadialGradient(96,100+fy,8,110,120+fy,70);
+  fg.addColorStop(0,'#ffd0a8');fg.addColorStop(.5,'#f5b090');fg.addColorStop(1,'#e8986a');
+  ctx.fillStyle=fg;ctx.beginPath();ctx.ellipse(110,125+fy,66,74,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#f5b090';ctx.beginPath();ctx.moveTo(58,155+fy);ctx.bezierCurveTo(56,185+fy,78,200+fy,110,206+fy);ctx.bezierCurveTo(142,200+fy,164,185+fy,162,155+fy);ctx.fill();
+
+  ctx.fillStyle='#f0a880';
+  ctx.beginPath();ctx.ellipse(46,158+fy,11,15,0,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.ellipse(174,158+fy,11,15,0,0,Math.PI*2);ctx.fill();
+
+  ctx.fillStyle=`rgba(240,100,100,${canvasState==='happy'?.4:.18})`;
+  ctx.beginPath();ctx.ellipse(78,175+fy,22,14,0,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.ellipse(142,175+fy,22,14,0,0,Math.PI*2);ctx.fill();
+
+  ctx.fillStyle='#1e2d4a';
+  ctx.beginPath();ctx.moveTo(46,118+fy);ctx.bezierCurveTo(44,72+fy,68,48+fy,100,42+fy);ctx.bezierCurveTo(124,34+fy,144,34+fy,164,42+fy);ctx.bezierCurveTo(176,50+fy,178,74+fy,174,118+fy);ctx.bezierCurveTo(158,88+fy,136,76+fy,110,74+fy);ctx.bezierCurveTo(84,76+fy,62,88+fy,46,118+fy);ctx.fill();
+  ctx.strokeStyle='#3a5585';ctx.lineWidth=4;ctx.lineCap='round';ctx.globalAlpha=.5;
+  ctx.beginPath();ctx.moveTo(72,56+fy);ctx.bezierCurveTo(90,44+fy,106,40+fy,124,42+fy);ctx.stroke();
+  ctx.globalAlpha=1;
+
+  ctx.strokeStyle='#1a1a2a';ctx.lineWidth=4.5;ctx.lineCap='round';
+  const by=canvasState==='thinking'?8:canvasState==='happy'?-3:0;
+  ctx.beginPath();ctx.moveTo(72,118+fy-by);ctx.quadraticCurveTo(86,110+fy-by,100,114+fy-by);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(120,114+fy-by);ctx.quadraticCurveTo(134,110+fy-by,148,118+fy-by);ctx.stroke();
+
+  const eH=15*(1-blink*.95);
+  [[84,148],[136,148]].forEach(([ex,ey])=>{
+    ctx.fillStyle='white';ctx.beginPath();ctx.ellipse(ex,ey+fy,17,eH,0,0,Math.PI*2);ctx.fill();
+    if(blink<.8){
+      ctx.fillStyle='#1a1a2a';ctx.beginPath();ctx.arc(ex,ey+fy,11,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#060608';ctx.beginPath();ctx.arc(ex,ey+fy,5.5,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='white';ctx.beginPath();ctx.arc(ex-5,ey-4+fy,4,0,Math.PI*2);ctx.fill();
+    }
+    ctx.strokeStyle='#1a1a2a';ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(ex-17,ey+fy);ctx.quadraticCurveTo(ex,ey-14+fy,ex+17,ey+fy);ctx.stroke();
+    [[ex-16,ey-2,ex-19,ey-11],[ex-10,ey-8,ex-12,ey-18],[ex-3,ey-12,ex-3,ey-22],[ex+4,ey-11,ex+6,ey-21],[ex+10,ey-7,ex+14,ey-16],[ex+15,ey-2,ex+19,ey-10]].forEach(([x1,y1,x2,y2])=>{
+      ctx.beginPath();ctx.moveTo(x1,y1+fy);ctx.lineTo(x2,y2+fy);ctx.stroke();
+    });
+  });
+
+  ctx.strokeStyle='#c88050';ctx.lineWidth=2.2;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(102,170+fy);ctx.quadraticCurveTo(97,182+fy,101,188+fy);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(101,188+fy);ctx.quadraticCurveTo(110,194+fy,119,188+fy);ctx.stroke();
+
+  const sy=canvasState==='happy'?-5:0,sc=canvasState==='happy'?-12:-4,my=202+fy+sy;
+  ctx.fillStyle='#c07870';ctx.beginPath();ctx.moveTo(90,my);ctx.bezierCurveTo(100,my+sc,120,my+sc,130,my);ctx.fill();
+  if(mOpen>.05){
+    ctx.fillStyle='#7a2020';ctx.beginPath();ctx.moveTo(90,my);ctx.lineTo(130,my);ctx.bezierCurveTo(130,my+mOpen*24,110,my+mOpen*28,90,my+mOpen*24);ctx.closePath();ctx.fill();
+    ctx.fillStyle='#f0ede6';ctx.fillRect(92,my,36,8);
+  }
+  ctx.fillStyle='#d08878';ctx.beginPath();ctx.moveTo(90,my);ctx.bezierCurveTo(100,mOpen>0?my+mOpen*26+16:my+16,120,mOpen>0?my+mOpen*26+16:my+16,130,my);ctx.fill();
+
+  requestAnimationFrame(drawFallbackAvatar);
+}
+drawFallbackAvatar();
+
+// ── Inicio con gesto del usuario ─────────────────────────────
+async function startKiosco() {
+  // Crear AudioContext después del gesto — resuelve el error de Chrome
+  audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioContext.state === 'suspended') await audioContext.resume();
+
+  document.getElementById('start-screen').classList.add('hidden');
+  connectLiveAvatar();
+}
+
+// ── LiveKit: conectar al avatar en tiempo real ───────────────
+async function connectLiveAvatar() {
+  setLoading(true, 'Iniciando sesión...');
+  try {
+    const res = await fetch('/api/liveavatar/session', {
+      method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({})
+    });
+    sessionData = await res.json();
+    if (sessionData.error) throw new Error(sessionData.error);
+
+    setLoading(true, 'Conectando avatar...');
+
+    const room = new LivekitClient.Room({ adaptiveStream: true, dynacast: true });
+
+    room.on(LivekitClient.RoomEvent.TrackSubscribed, (track, pub, participant) => {
+      if (track.kind === 'video') {
+        const videoEl = document.getElementById('avatar-video');
+        track.attach(videoEl);
+        videoEl.style.display = 'block';
+        canvas.style.display = 'none';
+        setLoading(false);
+        setAvatarState('idle');
+      }
+      if (track.kind === 'audio') {
+        // Adjuntar audio del avatar al AudioContext desbloqueado
+        const audioEl = track.attach();
+        audioEl.autoplay = true;
+        document.body.appendChild(audioEl);
+      }
+    });
+
+    room.on(LivekitClient.RoomEvent.TrackUnsubscribed, (track) => {
+      if (track.kind === 'video') {
+        document.getElementById('avatar-video').style.display = 'none';
+        canvas.style.display = 'block';
+      }
+    });
+
+    room.on(LivekitClient.RoomEvent.Disconnected, () => setAvatarState('idle'));
+
+    await room.connect(sessionData.livekit_url, sessionData.livekit_client_token);
+    livekitRoom = room;
+    connectWebSocket();
+    console.log('LiveAvatar conectado ✅');
+  } catch(err) {
+    console.error('LiveAvatar error:', err.message);
+    setLoading(false);
+    setAvatarState('idle');
+  }
+}
+
+function connectWebSocket() {
+  if (!sessionData?.ws_url) return;
+  try {
+    wsConn = new WebSocket(sessionData.ws_url);
+    wsConn.onopen = () => console.log('WebSocket conectado ✅');
+    wsConn.onerror = (e) => console.error('WS error:', e);
+    wsConn.onmessage = (e) => {
+      try {
+        const msg = JSON.parse(e.data);
+        if (msg.type === 'avatar_start_talking') setAvatarState('speaking');
+        if (msg.type === 'avatar_stop_talking') setAvatarState('idle');
+      } catch(err) {}
+    };
+  } catch(e) { console.error('WS connect:', e); }
+}
+
+function sendAvatarSpeak(text) {
+  if (!wsConn || wsConn.readyState !== WebSocket.OPEN) return;
+  wsConn.send(JSON.stringify({ type: 'speak', text }));
+}
+
+// ── Wave bars ────────────────────────────────────────────────
+function setWave(m){ document.querySelectorAll('.wmbar').forEach(b=>b.className='wmbar '+m); }
+function setAvatarState(s){
+  canvasState=s;
+  setWave(s==='thinking'||s==='loading'?'idle':s);
+  const lbl=document.getElementById('status-label');
+  if(s==='speaking')lbl.textContent='Hablando...';
+  else if(s==='listening')lbl.textContent='Escuchando...';
+  else if(s==='thinking')lbl.textContent='Pensando...';
+  else lbl.textContent='Asistente · En línea';
+}
+function setLoading(show,msg){
+  document.getElementById('loading-overlay').className=show?'show':'';
+  if(msg)document.getElementById('loading-msg').textContent=msg;
+}
+
+// ── Flujo principal ──────────────────────────────────────────
+async function processMessage(userText) {
+  setAvatarState('thinking');
+  try {
+    conversationHistory.push({role:'user',content:userText});
+    const cr=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:conversationHistory,system:SYSTEM_PROMPT})});
+    const cd=await cr.json();
+    const replyText=cd.content?.[0]?.text||'Lo siento, no pude responder.';
+    conversationHistory.push({role:'assistant',content:replyText});
+    addMsg(replyText,'bot');
+
+    setAvatarState('speaking');
+
+    // Audio con ElevenLabs
+    const tr=await fetch('/api/tts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:replyText.replace(/[•*\n]/g,' ').trim()})});
+    const audioBlob=await tr.blob();
+    const arrayBuffer=await audioBlob.arrayBuffer();
+
+    if(audioContext){
+      const decoded=await audioContext.decodeAudioData(arrayBuffer);
+      const source=audioContext.createBufferSource();
+      source.buffer=decoded;
+      source.connect(audioContext.destination);
+      source.onended=()=>setAvatarState('idle');
+      source.start();
+    }
+
+    // Decirle al avatar que hable
+    sendAvatarSpeak(replyText);
+
+  } catch(err) {
+    console.error('Error:',err);
+    setAvatarState('idle');
+  }
+}
+
+// ── Chat UI ──────────────────────────────────────────────────
+function addMsg(text,who){
+  const area=document.getElementById('chat-area');
+  const div=document.createElement('div');div.className='kmsg '+who;
+  const av=document.createElement('div');av.className='kav';av.textContent=who==='bot'?'A':'Tú';
+  const bub=document.createElement('div');bub.className='kbubble';bub.textContent=text;
+  if(who==='bot'){div.appendChild(av);div.appendChild(bub);}else{div.appendChild(bub);div.appendChild(av);}
+  area.appendChild(div);area.scrollTop=area.scrollHeight;
+}
+function showTyping(){
+  const area=document.getElementById('chat-area');
+  const div=document.createElement('div');div.className='kmsg bot';div.id='ktyping';
+  const av=document.createElement('div');av.className='kav';av.textContent='A';
+  const bub=document.createElement('div');bub.className='typing-bub';
+  bub.innerHTML='<div class="tdot"></div><div class="tdot"></div><div class="tdot"></div>';
+  div.appendChild(av);div.appendChild(bub);area.appendChild(div);area.scrollTop=area.scrollHeight;
+}
+function removeTyping(){const t=document.getElementById('ktyping');if(t)t.remove();}
+function sendChip(t){document.getElementById('k-input').value=t;sendMsg();}
+function sendMsg(){
+  const input=document.getElementById('k-input'),btn=document.getElementById('k-send');
+  const text=input.value.trim();if(!text)return;
+  input.value='';btn.disabled=true;
+  addMsg(text,'user');showTyping();
+  setTimeout(()=>{removeTyping();processMessage(text).finally(()=>{btn.disabled=false;input.focus();});},300);
+}
+
+// ── Micrófono ────────────────────────────────────────────────
+let recognition=null,isListening=false;
+function toggleMic(){
+  if(isListening){recognition&&recognition.stop();return;}
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){alert('Usa Chrome para el micrófono.');return;}
+  recognition=new SR();recognition.lang='es-CO';recognition.interimResults=false;
+  recognition.onstart=()=>{isListening=true;setAvatarState('listening');document.getElementById('k-mic').classList.add('listening');document.getElementById('k-mic').textContent='⏹';document.getElementById('k-input').placeholder='Escuchando...';};
+  recognition.onresult=(e)=>{document.getElementById('k-input').value=e.results[0][0].transcript;sendMsg();};
+  recognition.onerror=recognition.onend=()=>{isListening=false;setAvatarState('idle');document.getElementById('k-mic').classList.remove('listening');document.getElementById('k-mic').textContent='🎤';document.getElementById('k-input').placeholder='Toca aquí y escribe tu pregunta...';};
+  recognition.start();
+}
+
+// ── Init ─────────────────────────────────────────────────────
+function updateClock(){document.getElementById('clock').textContent=new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});}
+updateClock();setInterval(updateClock,30000);
+
+// Pre-cargar avatar en la pantalla de inicio
+window.addEventListener('load', async () => {
+  try {
+    const res=await fetch('/api/liveavatar/session',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})});
+    sessionData=await res.json();
+    if(!sessionData.error){
+      const previewRoom=new LivekitClient.Room();
+      previewRoom.on(LivekitClient.RoomEvent.TrackSubscribed,(track)=>{
+        if(track.kind==='video'){
+          const sv=document.getElementById('start-video');
+          track.attach(sv);
+        }
+      });
+      await previewRoom.connect(sessionData.livekit_url,sessionData.livekit_client_token);
+      livekitRoom=previewRoom;
+      connectWebSocket();
+    }
+  } catch(e){ console.log('Preview error:',e.message); }
+});
+
+window.addEventListener('beforeunload',()=>{
+  if(sessionData?.session_token){
+    fetch('/api/liveavatar/close',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_token:sessionData.session_token}),keepalive:true});
+  }
+});
+</script>
+</body>
+</html>
